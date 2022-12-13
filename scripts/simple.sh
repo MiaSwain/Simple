@@ -13,16 +13,20 @@ source ./scripts/simple_variables.sh
 cat ./scripts/simple.sh > ./output/log.txt
 cat ./scripts/analysis3.R >> ./output/log.txt
 
-#install programs bwa and samtools
-cd programs/bwa-0.7.12
-make clean 
-make
-
-cd ../samtools-0.1.19/
-make clean
-make
-
-cd ../../
+##DEPRECATED - In favor of conda environments
+## conda create -n simple -c bioconda samtools bwa picard snpeff
+## conda activate simple
+## Need to manually install GATK as it isn't just a JAR now
+##install programs bwa and samtools
+#cd programs/bwa-0.7.12
+#make clean 
+#make
+#
+#cd ../samtools-0.1.19/
+#make clean
+#make
+#
+#cd ../../
 
 #downloading & creating fasta file
 fasta_link=`awk -v var="$my_species" 'match($1, var) {print $2}' ./scripts/data_base.txt`
@@ -62,65 +66,66 @@ snpEffDB=$snpEff_link #paste the snpEff annotated genome name
 
 ####creating reference files####
 #creating .fai file
-programs/samtools-0.1.19/samtools faidx $fa
+samtools faidx $fa
 #creating bwa index files
-programs/bwa-0.7.12/bwa index -p $my_species.chrs.fa -a is $fa
+bwa index -p $my_species.chrs.fa -a is $fa
 mv $my_species.chrs.* refs/
 
 #generating dict file for GATK
-java -Xmx2g -jar programs/picard-tools-1.119/CreateSequenceDictionary.jar R=$fa O=refs/$my_species.chrs.dict
+picard CreateSequenceDictionary R=$fa O=refs/$my_species.chrs.dict
 
 #mapping w/ BWA
-programs/bwa-0.7.12/bwa mem -t 2 -M $fa ${mut_files[*]} > output/$mut.sam &
-programs/bwa-0.7.12/bwa mem -t 2 -M $fa ${wt_files[*]} > output/$wt.sam
+bwa mem -t 2 -M $fa ${mut_files[*]} > output/$mut.sam &
+bwa mem -t 2 -M $fa ${wt_files[*]} > output/$wt.sam
 wait
 
 
 #due to old samtools version this step is probably necessary
-programs/samtools-0.1.19/samtools view -bSh output/$mut.sam > output/$mut.bam &
-programs/samtools-0.1.19/samtools view -bSh output/$wt.sam > output/$wt.bam
+samtools view -bSh output/$mut.sam > output/$mut.bam &
+samtools view -bSh output/$wt.sam > output/$wt.bam
 wait
 
 rm -r output/*.sam
 
 #this step is probably needed only when you have paired-end; in any case it should come before coordinate sorting (next step) on name-sorted files
-programs/samtools-0.1.19/samtools fixmate output/$mut.bam output/$mut.fix.bam &
-programs/samtools-0.1.19/samtools fixmate output/$wt.bam output/$wt.fix.bam
+samtools fixmate output/$mut.bam output/$mut.fix.bam &
+samtools fixmate output/$wt.bam output/$wt.fix.bam
 wait
 
 #sort by coordinates
-programs/samtools-0.1.19/samtools sort output/$mut.fix.bam output/$mut.sort &
-programs/samtools-0.1.19/samtools sort output/$wt.fix.bam output/$wt.sort
+samtools sort output/$mut.fix.bam output/$mut.sort &
+samtools sort output/$wt.fix.bam output/$wt.sort
 wait
 
-java -Xmx2g -jar programs/picard-tools-1.119/MarkDuplicates.jar INPUT=output/$mut.sort.bam OUTPUT=output/$mut.sort.md.bam METRICS_FILE=output/$mut.matrics.txt ASSUME_SORTED=true &
-java -Xmx2g -jar programs/picard-tools-1.119/MarkDuplicates.jar INPUT=output/$wt.sort.bam OUTPUT=output/$wt.sort.md.bam METRICS_FILE=output/$wt.matrics.txt ASSUME_SORTED=true
+picard MarkDuplicates INPUT=output/$mut.sort.bam OUTPUT=output/$mut.sort.md.bam METRICS_FILE=output/$mut.matrics.txt ASSUME_SORTED=true &
+picard MarkDuplicates INPUT=output/$wt.sort.bam OUTPUT=output/$wt.sort.md.bam METRICS_FILE=output/$wt.matrics.txt ASSUME_SORTED=true
 wait
 
 #this part is just to add header for further gatk tools
-java -Xmx2g -jar programs/picard-tools-1.119/AddOrReplaceReadGroups.jar INPUT=output/$mut.sort.md.bam OUTPUT=output/$mut.sort.md.rg.bam RGLB=$mut RGPL=illumina RGSM=$mut RGPU=run1 SORT_ORDER=coordinate &
-java -Xmx2g -jar programs/picard-tools-1.119/AddOrReplaceReadGroups.jar INPUT=output/$wt.sort.md.bam OUTPUT=output/$wt.sort.md.rg.bam RGLB=$wt RGPL=illumina RGSM=$wt RGPU=run1 SORT_ORDER=coordinate
+picard AddOrReplaceReadGroups INPUT=output/$mut.sort.md.bam OUTPUT=output/$mut.sort.md.rg.bam RGLB=$mut RGPL=illumina RGSM=$mut RGPU=run1 SORT_ORDER=coordinate &
+picard AddOrReplaceReadGroups INPUT=output/$wt.sort.md.bam OUTPUT=output/$wt.sort.md.rg.bam RGLB=$wt RGPL=illumina RGSM=$wt RGPU=run1 SORT_ORDER=coordinate
 wait
 
-java -Xmx2g -jar programs/picard-tools-1.119/BuildBamIndex.jar INPUT=output/$mut.sort.md.rg.bam &
-java -Xmx2g -jar programs/picard-tools-1.119/BuildBamIndex.jar INPUT=output/$wt.sort.md.rg.bam
+picard BuildBamIndex INPUT=output/$mut.sort.md.rg.bam &
+picard BuildBamIndex INPUT=output/$wt.sort.md.rg.bam
 wait
 
 #Variant calling using GATK HC extra parameters
-java -Xmx2g -jar programs/GenomeAnalysisTK.jar -T HaplotypeCaller -R $fa -I output/$mut.sort.md.rg.bam -I output/$wt.sort.md.rg.bam -o output/$line.hc.vcf -minReadsPerAlignStart 7 -gt_mode DISCOVERY -out_mode EMIT_ALL_SITES -writeFullFormat -stand_emit_conf 10 -stand_call_conf 10 -nct 2 -variant_index_type LINEAR -variant_index_parameter 128000 -allowPotentiallyMisencodedQuals #the last argument is necessary for old sequencing results where the quality scores do not match the HC restriction: https://www.biostars.org/p/94637/; I also tried --fix_misencoded_quality_scores -fixMisencodedQuals from the same link but I received an error message. "Bad input: while fixing mis-encoded base qualities we encountered a read that was correctly encoded; we cannot handle such a mixture of reads so unfortunately the BAM must be fixed with some other tool"
+#java -Xmx2g -jar programs/GenomeAnalysisTK.jar -T HaplotypeCaller -R $fa -I output/$mut.sort.md.rg.bam -I output/$wt.sort.md.rg.bam -o output/$line.hc.vcf -minReadsPerAlignStart 7 -gt_mode DISCOVERY -out_mode EMIT_ALL_SITES -writeFullFormat -stand_emit_conf 10 -stand_call_conf 10 -nct 2 -variant_index_type LINEAR -variant_index_parameter 128000 -allowPotentiallyMisencodedQuals #the last argument is necessary for old sequencing results where the quality scores do not match the HC restriction: https://www.biostars.org/p/94637/; I also tried --fix_misencoded_quality_scores -fixMisencodedQuals from the same link but I received an error message. "Bad input: while fixing mis-encoded base qualities we encountered a read that was correctly encoded; we cannot handle such a mixture of reads so unfortunately the BAM must be fixed with some other tool"
+gatk HaplotypeCaller -R $fa -I output/$mut.sort.md.rg.bam -I output/$wt.sort.md.rg.bam -o output/$line.hc.vcf -minReadsPerAlignStart 7 -gt_mode DISCOVERY -out_mode EMIT_ALL_SITES -writeFullFormat -stand_emit_conf 10 -stand_call_conf 10 -nct 2 -variant_index_type LINEAR -variant_index_parameter 128000 -allowPotentiallyMisencodedQuals #the last argument is necessary for old sequencing results where the quality scores do not match the HC restriction: https://www.biostars.org/p/94637/; I also tried --fix_misencoded_quality_scores -fixMisencodedQuals from the same link but I received an error message. "Bad input: while fixing mis-encoded base qualities we encountered a read that was correctly encoded; we cannot handle such a mixture of reads so unfortunately the BAM must be fixed with some other tool"
 
 ############prepering for R#########################
 #Exclude indels from a VCF
 #java -Xmx2g -jar programs/GenomeAnalysisTK.jar -R $fa -T SelectVariants --variant output/$line.hc.vcf -o output/$line.selvars.vcf --selectTypeToInclude SNP
 
 #now make it into a table
-java -jar programs/GenomeAnalysisTK.jar -R $fa -T VariantsToTable -V output/$line.hc.vcf -F CHROM -F POS -F REF -F ALT -GF GT -GF AD -GF DP -GF GQ -o output/$line.table
+gatk VariantsToTable -R $fa -T VariantsToTable -V output/$line.hc.vcf -F CHROM -F POS -F REF -F ALT -GF GT -GF AD -GF DP -GF GQ -o output/$line.table
 
 ####################################################################################################################################################
 ########################################now let's find the best candidates##########################################################################
 
 #snpEff
-java -jar programs/snpEff/snpEff.jar -c programs/snpEff/snpEff.config $snpEffDB -s output/snpEff_summary.html output/$line.hc.vcf > output/$line.se.vcf
+snpEff -c programs/snpEff/snpEff.config $snpEffDB -s output/snpEff_summary.html output/$line.hc.vcf > output/$line.se.vcf
 
 ###%%%%%%% JEN %%%%%%%%%%
 #and finally, get only the SNPs that are ref/ref or ref/alt in the wt bulk and alt/alt in the mut bulk for recessive mutations

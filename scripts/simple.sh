@@ -32,6 +32,7 @@ cat ./scripts/analysis3.R >> ./output/log.txt
 fasta_link=`awk -v var="$my_species" 'match($1, var) {print $2}' ./scripts/data_base.txt`
 
 if ! [ -f ./refs/$my_species.fa ]; then
+  echo "Downloading reference FASTA file"
   curl -o ./refs/$my_species.fa.gz $fasta_link
   gzip -d ./refs/$my_species.fa.gz
 fi
@@ -52,6 +53,7 @@ fa=./refs/$my_species.chrs.fa
 #downloading & creating knownsnps file
 knownsnps_link=`awk -v var="$my_species" 'match($1, var) {print $3}' ./scripts/data_base.txt`
 if ! [ -f ./refs/$my_species.vcf ]; then
+  echo "Downloading known SNPs VCF"
   curl -o ./refs/$my_species.vcf.gz -Lk $knownsnps_link
   gzip -d ./refs/$my_species.vcf.gz
 fi
@@ -65,73 +67,131 @@ knownsnps=./refs/$my_species.vcf
 snpEffDB=$snpEff_link #paste the snpEff annotated genome name
 
 ####creating reference files####
+##Adding logic to not recreate files
 #creating .fai file
-samtools faidx $fa
+if ! [ -f ./refs/$my_species.fa.fai ]; then
+    echo "Creating samtools faidx index"
+    samtools faidx $fa
+fi
 #creating bwa index files
-bwa index -p $my_species.chrs.fa -a is $fa
-mv $my_species.chrs.* refs/
+if ! [ -f ./refs/$my_species.chrs.fa.bwt ]; then
+    echo "Creating BWA index"
+    bwa index -p $my_species.chrs.fa -a is $fa
+    mv $my_species.chrs.* refs/
+fi
 
 #generating dict file for GATK
-picard CreateSequenceDictionary R=$fa O=refs/$my_species.chrs.dict
+##OLD WAY
+#picard CreateSequenceDictionary R=$fa O=refs/$my_species.chrs.dict
+if ! [ -f ./refs/$my_species.chrs.dict ]; then
+    echo "Creating Seq Dictionary"
+    picard CreateSequenceDictionary -R $fa -O refs/$my_species.chrs.dict
+fi
 
 #mapping w/ BWA
-bwa mem -t 2 -M $fa ${mut_files[*]} > output/$mut.sam &
-bwa mem -t 2 -M $fa ${wt_files[*]} > output/$wt.sam
-wait
+##ORIGINAL
+#bwa mem -t 2 -M $fa ${mut_files[*]} > output/$mut.sam &
+#bwa mem -t 2 -M $fa ${wt_files[*]} > output/$wt.sam
+#wait
 
 
-#due to old samtools version this step is probably necessary
-samtools view -bSh output/$mut.sam > output/$mut.bam &
-samtools view -bSh output/$wt.sam > output/$wt.bam
-wait
+if ! [ -f ./output/$mut.bam ]; then
+    echo "Mapping with BWA and creating BAM files"
+    bwa mem -t 22 -M $fa ${mut_files[*]} | samtools view -bS - > output/$mut.bam &
+    bwa mem -t 22 -M $fa ${wt_files[*]}  | samtools view -bS - > output/$wt.bam
+    wait
+fi
 
-rm -r output/*.sam
+##DEPRECATED WITH NEW PIPED METHOD ABOVE
+##due to old samtools version this step is probably necessary
+#samtools view -bSh output/$mut.sam > output/$mut.bam &
+#samtools view -bSh output/$wt.sam > output/$wt.bam
+#wait
+
+#rm -r output/*.sam
 
 #this step is probably needed only when you have paired-end; in any case it should come before coordinate sorting (next step) on name-sorted files
-samtools fixmate output/$mut.bam output/$mut.fix.bam &
-samtools fixmate output/$wt.bam output/$wt.fix.bam
-wait
+if ! [ -f ./output/$mut.fix.bam ]; then
+    echo "Fixing Mate"
+    samtools fixmate output/$mut.bam output/$mut.fix.bam &
+    samtools fixmate output/$wt.bam output/$wt.fix.bam
+    wait
+fi
 
 #sort by coordinates
-samtools sort output/$mut.fix.bam output/$mut.sort &
-samtools sort output/$wt.fix.bam output/$wt.sort
-wait
+if ! [ -f ./output/$mut.sort.bam ]; then
+    echo "Sorting files"
+    samtools sort output/$mut.fix.bam -o output/$mut.sort.bam &
+    samtools sort output/$wt.fix.bam -o output/$wt.sort.bam
+    wait
+fi
 
-picard MarkDuplicates INPUT=output/$mut.sort.bam OUTPUT=output/$mut.sort.md.bam METRICS_FILE=output/$mut.matrics.txt ASSUME_SORTED=true &
-picard MarkDuplicates INPUT=output/$wt.sort.bam OUTPUT=output/$wt.sort.md.bam METRICS_FILE=output/$wt.matrics.txt ASSUME_SORTED=true
-wait
+#picard MarkDuplicates INPUT=output/$mut.sort.bam OUTPUT=output/$mut.sort.md.bam METRICS_FILE=output/$mut.matrics.txt ASSUME_SORTED=true &
+#picard MarkDuplicates INPUT=output/$wt.sort.bam OUTPUT=output/$wt.sort.md.bam METRICS_FILE=output/$wt.matrics.txt ASSUME_SORTED=true
+#wait
+if ! [ -f ./output/$mut.sort.md.bam ]; then
+    echo "Running Picard Mark Duplicates"
+    picard MarkDuplicates -INPUT output/$mut.sort.bam -OUTPUT output/$mut.sort.md.bam -METRICS_FILE output/$mut.matrics.txt -ASSUME_SORTED true &
+    picard MarkDuplicates -INPUT output/$wt.sort.bam -OUTPUT output/$wt.sort.md.bam -METRICS_FILE output/$wt.matrics.txt -ASSUME_SORTED true
+    wait
+fi
 
 #this part is just to add header for further gatk tools
-picard AddOrReplaceReadGroups INPUT=output/$mut.sort.md.bam OUTPUT=output/$mut.sort.md.rg.bam RGLB=$mut RGPL=illumina RGSM=$mut RGPU=run1 SORT_ORDER=coordinate &
-picard AddOrReplaceReadGroups INPUT=output/$wt.sort.md.bam OUTPUT=output/$wt.sort.md.rg.bam RGLB=$wt RGPL=illumina RGSM=$wt RGPU=run1 SORT_ORDER=coordinate
-wait
+#picard AddOrReplaceReadGroups INPUT=output/$mut.sort.md.bam OUTPUT=output/$mut.sort.md.rg.bam RGLB=$mut RGPL=illumina RGSM=$mut RGPU=run1 SORT_ORDER=coordinate &
+#picard AddOrReplaceReadGroups INPUT=output/$wt.sort.md.bam OUTPUT=output/$wt.sort.md.rg.bam RGLB=$wt RGPL=illumina RGSM=$wt RGPU=run1 SORT_ORDER=coordinate
+#wait
+if ! [ -f ./output/$mut.sort.md.rg.bam ]; then
+    echo "Running Picard AddOrReplaceReadGroups"
+    picard AddOrReplaceReadGroups -INPUT output/$mut.sort.md.bam -OUTPUT output/$mut.sort.md.rg.bam -RGLB $mut -RGPL illumina -RGSM $mut -RGPU run1 -SORT_ORDER coordinate &
+    picard AddOrReplaceReadGroups -INPUT output/$wt.sort.md.bam -OUTPUT output/$wt.sort.md.rg.bam -RGLB $wt -RGPL illumina -RGSM $wt -RGPU run1 -SORT_ORDER coordinate
+    wait
+fi
 
-picard BuildBamIndex INPUT=output/$mut.sort.md.rg.bam &
-picard BuildBamIndex INPUT=output/$wt.sort.md.rg.bam
-wait
+if ! [ -f ./output/$mut.sort.md.rg.bai ]; then
+    echo "Running Picard BuildBamIndex"
+    picard BuildBamIndex INPUT=output/$mut.sort.md.rg.bam &
+    picard BuildBamIndex INPUT=output/$wt.sort.md.rg.bam
+    wait
+    #picard BuildBamIndex -INPUT output/$mut.sort.md.rg.bam &
+    #picard BuildBamIndex -INPUT output/$wt.sort.md.rg.bam
+    #wait
+fi
 
 #Variant calling using GATK HC extra parameters
 #java -Xmx2g -jar programs/GenomeAnalysisTK.jar -T HaplotypeCaller -R $fa -I output/$mut.sort.md.rg.bam -I output/$wt.sort.md.rg.bam -o output/$line.hc.vcf -minReadsPerAlignStart 7 -gt_mode DISCOVERY -out_mode EMIT_ALL_SITES -writeFullFormat -stand_emit_conf 10 -stand_call_conf 10 -nct 2 -variant_index_type LINEAR -variant_index_parameter 128000 -allowPotentiallyMisencodedQuals #the last argument is necessary for old sequencing results where the quality scores do not match the HC restriction: https://www.biostars.org/p/94637/; I also tried --fix_misencoded_quality_scores -fixMisencodedQuals from the same link but I received an error message. "Bad input: while fixing mis-encoded base qualities we encountered a read that was correctly encoded; we cannot handle such a mixture of reads so unfortunately the BAM must be fixed with some other tool"
-gatk HaplotypeCaller -R $fa -I output/$mut.sort.md.rg.bam -I output/$wt.sort.md.rg.bam -o output/$line.hc.vcf -minReadsPerAlignStart 7 -gt_mode DISCOVERY -out_mode EMIT_ALL_SITES -writeFullFormat -stand_emit_conf 10 -stand_call_conf 10 -nct 2 -variant_index_type LINEAR -variant_index_parameter 128000 -allowPotentiallyMisencodedQuals #the last argument is necessary for old sequencing results where the quality scores do not match the HC restriction: https://www.biostars.org/p/94637/; I also tried --fix_misencoded_quality_scores -fixMisencodedQuals from the same link but I received an error message. "Bad input: while fixing mis-encoded base qualities we encountered a read that was correctly encoded; we cannot handle such a mixture of reads so unfortunately the BAM must be fixed with some other tool"
+if ! [ -f ./output/$line.hc.vcf ]; then
+    echo "Running GATK HaplotypeCaller"
+    #gatk HaplotypeCaller -R $fa -I output/$mut.sort.md.rg.bam -I output/$wt.sort.md.rg.bam -O output/$line.hc.vcf -minReadsPerAlignStart 7 -gt_mode DISCOVERY -out_mode EMIT_ALL_SITES -writeFullFormat -stand_emit_conf 10 -stand_call_conf 10 -nct 2 -variant_index_type LINEAR -variant_index_parameter 128000 -allowPotentiallyMisencodedQuals 
+    gatk HaplotypeCaller -R $fa -I output/$mut.sort.md.rg.bam -I output/$wt.sort.md.rg.bam -O output/$line.hc.vcf --output-mode EMIT_ALL_ACTIVE_SITES -stand-call-conf 10 
+fi
 
 ############prepering for R#########################
 #Exclude indels from a VCF
 #java -Xmx2g -jar programs/GenomeAnalysisTK.jar -R $fa -T SelectVariants --variant output/$line.hc.vcf -o output/$line.selvars.vcf --selectTypeToInclude SNP
 
 #now make it into a table
-gatk VariantsToTable -R $fa -T VariantsToTable -V output/$line.hc.vcf -F CHROM -F POS -F REF -F ALT -GF GT -GF AD -GF DP -GF GQ -o output/$line.table
+if ! [ -f ./output/$line.table ]; then
+    echo "Running GATK VariantsToTable"
+    gatk VariantsToTable -R $fa -V output/$line.hc.vcf -F CHROM -F POS -F REF -F ALT -GF GT -GF AD -GF DP -GF GQ -O output/$line.table
+fi
 
 ####################################################################################################################################################
 ########################################now let's find the best candidates##########################################################################
 
 #snpEff
-snpEff -c programs/snpEff/snpEff.config $snpEffDB -s output/snpEff_summary.html output/$line.hc.vcf > output/$line.se.vcf
+if ! [ -f ./output/$line.se.vcf ]; then
+    echo "Running snpEff"
+    #snpEff -c programs/snpEff/snpEff.config $snpEffDB -s output/snpEff_summary.html output/$line.hc.vcf > output/$line.se.vcf
+    snpEff  $snpEffDB -s output/snpEff_summary.html output/$line.hc.vcf > output/$line.se.vcf
+fi
+
 
 ###%%%%%%% JEN %%%%%%%%%%
 #and finally, get only the SNPs that are ref/ref or ref/alt in the wt bulk and alt/alt in the mut bulk for recessive mutations
 #for the case of dominant mutations should be ref/ref in the wt bulk and ref/alt or alt/alt in the mutant bulk
 #column 10 is mutant bulk
 #column 11 is WT bulk
+echo "Running AWK filtering commands"
 if [ $mutation = "recessive" ]; then
 	grep -v '^##' output/$line.se.vcf | awk 'BEGIN{FS=" "; OFS=" "} $1~/#CHROM/ || $10~/^1\/1/ && ($11~/^1\/0/ || $11~/^0\/0/ || $11~/^0\/1/) && $1~/^[0-9X]*$/ && /splice_acceptor_variant|splice_donor_variant|splice_region_variant|stop_lost|start_lost|stop_gained|missense_variant|coding_sequence_variant|inframe_insertion|disruptive_inframe_insertion|inframe_deletion|disruptive_inframe_deletion|exon_variant|exon_loss_variant|exon_loss_variant|duplication|inversion|frameshift_variant|feature_ablation|duplication|gene_fusion|bidirectional_gene_fusion|rearranged_at_DNA_level|miRNA|initiator_codon_variant|start_retained/ {$3=$7=""; print $0}' | sed 's/  */ /g' | awk '{split($9,a,":"); split(a[2],b,","); if (b[1]>b[2] || $1~/#CHROM/) print $0}' > output/$line.cands2.txt
 else
@@ -186,8 +246,8 @@ awk 'BEGIN{OFS="\t"} NR>1 {split($6,a,"|");split($8,b,":"); split(b[2],c,","); s
 Rscript ./scripts/analysis3.R $line
 
 #archiving files
-mv ./output/* ./archive/
-mv ./archive/$line.*pdf* ./archive/*allSNPs.txt ./archive/$line.candidates.txt ./output/
+#mv ./output/* ./archive/
+#mv ./archive/$line.*pdf* ./archive/*allSNPs.txt ./archive/$line.candidates.txt ./output/
 
 echo "$(tput setaf 1)Simple $(tput setaf 3)is $(tput setaf 4)done"
 

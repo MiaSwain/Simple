@@ -106,8 +106,8 @@ fi
 
 if ! [ -f ./output/$mut.bam ]; then
     echo "Mapping with BWA and creating BAM files"
-    bwa mem -t 8 -M $fa ${mut_files[*]} | samtools view -bS - > output/$mut.bam &
-    bwa mem -t 8 -M $fa ${wt_files[*]}  | samtools view -bS - > output/$wt.bam
+    bwa mem -t 3 -M $fa ${mut_files[*]} | samtools view -bS - > output/$mut.bam &
+    bwa mem -t 3 -M $fa ${wt_files[*]}  | samtools view -bS - > output/$wt.bam
     wait
 fi
 

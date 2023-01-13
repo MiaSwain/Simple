@@ -156,10 +156,10 @@ if ! [ -f ./output/$mut.sort.md.rg.bam ]; then
     wait
 fi
 
-if ! [ -f ./output/$mut.sort.md.rg.bai ]; then
+if ! [ -f ./output/$mut.sort.md.rg.bam.bai ]; then
     echo "Running Picard BuildBamIndex"
-    picard BuildBamIndex INPUT=output/$mut.sort.md.rg.bam &
-    picard BuildBamIndex INPUT=output/$wt.sort.md.rg.bam
+    picard BuildBamIndex INPUT=output/$mut.sort.md.rg.bam OUTPUT=output/$mut.sort.md.rg.bam.bai &
+    picard BuildBamIndex INPUT=output/$wt.sort.md.rg.bam OUTPUT=output/$wt.sort.md.rg.bam.bai
     wait
     #picard BuildBamIndex -INPUT output/$mut.sort.md.rg.bam &
     #picard BuildBamIndex -INPUT output/$wt.sort.md.rg.bam

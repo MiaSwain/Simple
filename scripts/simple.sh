@@ -9,6 +9,15 @@
 #reading variables
 source ./scripts/simple_variables.sh
 
+##Create folders if not made
+if ! [ -d ./output/ ]; then
+    mkdir output
+fi
+
+if ! [ -d ./refs/ ]; then
+    mkdir refs
+fi
+
 #creating a log file for the input commands; I also wanted to have logs for the output but some of the stdout are super long
 cat ./scripts/simple.sh > ./output/log.txt
 cat ./scripts/analysis3.R >> ./output/log.txt
@@ -97,8 +106,8 @@ fi
 
 if ! [ -f ./output/$mut.bam ]; then
     echo "Mapping with BWA and creating BAM files"
-    bwa mem -t 22 -M $fa ${mut_files[*]} | samtools view -bS - > output/$mut.bam &
-    bwa mem -t 22 -M $fa ${wt_files[*]}  | samtools view -bS - > output/$wt.bam
+    bwa mem -t 8 -M $fa ${mut_files[*]} | samtools view -bS - > output/$mut.bam &
+    bwa mem -t 8 -M $fa ${wt_files[*]}  | samtools view -bS - > output/$wt.bam
     wait
 fi
 

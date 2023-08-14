@@ -1,21 +1,15 @@
 # SIMPLE — A SIMPLE pipeline for mapping point mutations
 
-#####   SYSTEM REQUIREMENTS  #####
+## SYSTEM REQUIREMENTS
+- Runs on mac (10.11.6) with X11 and Linux (centOS 6.7)
+- Requires Java 1.7 (7u79; http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html)
+  - A new Simple version for Java1.8 is available. Please try it first if you have Java1.8
+  - the link to it is: https://github.com/wacguy/Simple-1.8.1
+- Requires R and the following packages: ggplot2, reshape2 and ggrepel
+- requires Command Line Tools in Mac OS X
+- Internet connection
 
-# Runs on mac (10.11.6) with X11 and Linux (centOS 6.7)
-
-# Requires Java 1.7 (7u79; http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html)
-
-## A new Simple version for Java1.8 is available. Please try it first if you have Java1.8
-#the link to it is:
-https://github.com/wacguy/Simple-1.8.1
-
-# Requires R and the following packages: ggplot2, reshape2 and ggrepel
-# requires Command Line Tools in Mac OS X
-
-# Internet connection
-
-##### RUNNING SIMPLE #####
+## RUNNING SIMPLE
 
 1. Clone this repository containing the Simple package
 ```

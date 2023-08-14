@@ -36,17 +36,22 @@ git clone https://github.com/MiaSwain/Simple.git
 9. Type: cd ~/Simple. Press return.
 
 10. Change the permissions for the `simple.sh` script it is executable.
-```
+```bash
 chmod +x ./scripts/simple.sh
 ```
 
 11. Begin a screen session so your job can run in the background
-```
+```bash
 screen -S <session_name>
 ```
 
-12. Execute the program
+12. Activate the simple_screen conda environment
+```bash
+conda activate simple_screen
 ```
+
+12. Execute the program
+```bash
 ./scripts/simple.sh
 ```
 

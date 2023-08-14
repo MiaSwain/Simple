@@ -54,7 +54,7 @@ screen -S <session_name>
 
 ## Notes on using screen
 - To exit a screen: Ctrl + A + D
-- To return to a screen: `screen -r <screen_name>
+- To return to a screen: `screen -r <screen_name>`
 
 
 

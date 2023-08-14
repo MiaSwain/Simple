@@ -11,16 +11,18 @@
 
 ## RUNNING SIMPLE
 
-1. Clone this repository containing the Simple package
+1. Clone this repository containing the Simple package into your home directory
 ```
 git clone https://github.com/MiaSwain/Simple.git
 ```
 
-2. Place the Simple folder in your home directory.
+3. Rename your fastq files as follows:
+  - For the mutant and WT bulk, the names should start with mut. and wt. respectively (note the dot)
+  - For single or paired-end you should then have R1 or R1 and R2, respectively and end with .fastq
+    - For example, if your mutant bulk was sequence in a paired-end format and the WT as single-end you should rename the three files as follow: mut.R1.fastq, mut.R2.fastq and wt.R1.fastq.
 
-3. Rename your fastq files as follow. For the mutant and WT bulk, the names should start with mut. and wt. respectively (note the dot); for single or paired-end you should then have R1 or R1 and R2, respectively and end with .fastq. For example, if your mutant bulk was sequence in a paired-end format and the WT as single-end you should rename the three files as follow: mut.R1.fastq, mut.R2.fastq and wt.R1.fastq.
-
-4.If you would like to have the name of your output files be specific to the line you are mapping, open the simple_variables.sh file and change the line variable from “EMS” to your line name.  Letters and underscores only, please. This name will be the prefix to all of your output files (this line should look like: line=linename)
+4.If you would like to have the name of your output files be specific to the line you are mapping, open the simple_variables.sh file and change the line variable from “EMS” to your line name.
+  - Letters and underscores only, please. This name will be the prefix to all of your output files (this line should look like: line=linename)
 
 5. Place the renamed fastq files in the fastq folder located in the Simple folder.
 
@@ -34,11 +36,24 @@ git clone https://github.com/MiaSwain/Simple.git
 
 10. Type: cd ~/Simple. Press return.
 
-11. Type: chmod +x ./scripts/simple.sh. Press return.
+11. Change the permissions for the `simple.sh` script it is executable.
+```
+chmod +x ./scripts/simple.sh
+```
 
-12. Type: ./scripts/simple.sh. Press return.
+12. Begin a screen session so your job can run in the background
+```
+screen -S <session_name>
+```
 
-13. The last command will execute the program.
+13. Execute the program
+```
+./scripts/simple.sh
+```
+
+## Notes on using screen
+- To exit a screen: Ctrl + A + D
+- To return to a screen: `screen -r <screen_name>
 
 14. The script will run for a few hours up to a couple of days, depending on the size of your fastq files and the size of the genome you are working with. You will know it finished once the prompt shows the following colorful text: “Simple is done”.
 

@@ -1,7 +1,6 @@
 # SIMPLE — A SIMPLE pipeline for mapping point mutations
 
 ## SYSTEM REQUIREMENTS
----
 - Runs on mac (10.11.6) with X11 and Linux (centOS 6.7)
 - Requires Java 1.7 (7u79; http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html)
   - A new Simple version for Java1.8 is available. Please try it first if you have Java1.8
@@ -11,7 +10,6 @@
 - Internet connection
 
 ## RUNNING SIMPLE
----
 1. Clone this repository containing the Simple package into your home directory
 ```
 git clone https://github.com/MiaSwain/Simple.git
@@ -55,7 +53,6 @@ screen -S <session_name>
 13. The script will run for a few hours up to a couple of days, depending on the size of your fastq files and the size of the genome you are working with. You will know it finished once the prompt shows the following colorful text: “Simple is done”.
 
 ## Notes on using screen
----
 - To exit a screen: Ctrl + A + D
 - To return to a screen: `screen -r <screen_name>
 

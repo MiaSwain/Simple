@@ -17,7 +17,7 @@ git clone https://github.com/MiaSwain/Simple.git
 
 2. Create the simple conda environment
 ```bash
-conda env create --file conda/simple.yml --name simple -y
+conda env create --file conda/simple.yml --name simple
 ```
 
 3. Make the `simple.sh` script executable

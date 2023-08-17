@@ -5,6 +5,8 @@
 # cnds=read.delim("/Users/guywachsman/Guy/EMS1/pipeline/M2_194-proof/EMS.candidates.txt", header =T, sep = "\t")
 # setwd("/Users/guywachsman/Dropbox (Duke Bio_Ea)/EMS1/pipeline/manuel/output")
 
+# Hashed out x11() commands so script can run on a remote server without an X11 graphical server environment
+
 setwd("./output")
 library("ggplot2")
 library("ggrepel")
@@ -84,7 +86,7 @@ fancy_scientific <- function(l) {
 }
 
 #getting the loess fitted plot
-x11()
+#x11()
 ggplot(tbl3, aes(pos, fitted)) + geom_point(aes(color=chr),size=0.3)+ facet_grid (.~ chr, scales = "free_x", space = "free_x")+geom_point(data=tbl3.cands, aes(x=pos, y=fitted), shape=5)+geom_text_repel(data=tbl3.cands, aes(x=pos, y=fitted, label=gene), size=3)+theme(legend.position="none")+scale_x_continuous(breaks=breaks, labels=fancy_scientific)+labs(x="position", y="ratio")
 
 #JEN changed file name
@@ -121,7 +123,7 @@ fancy_scientific <- function(l) {
 }
 
 #getting the loess fitted plot
-x11()
+#x11()
 ggplot(tbl3, aes(pos, fitted)) + geom_point(aes(color=chr),size=0.3)+ facet_grid (.~ chr, scales = "free_x", space = "free_x")+geom_point(data=tbl3.cands, aes(x=pos, y=fitted), shape=5)+geom_text_repel(data=tbl3.cands, aes(x=pos, y=fitted, label=gene), size=3)+theme(legend.position="none")+scale_x_continuous(breaks=breaks, labels=fancy_scientific)+labs(x="position", y="ratio")
 
 # JEN changed file name
@@ -134,7 +136,7 @@ tbl3.m=melt(tbl3, id.vars=c('At_num', 'gene', 'chr', 'pos', 'mut.ref', 'mut.alt'
 tbl3.cands.m=melt(tbl3.cands, id.vars=c('At_num', 'gene', 'chr', 'pos', 'mut.ref', 'mut.alt', 'wt.ref', 'wt.alt', 'ratio', 'fitted'))
 
 
-x11()
+#x11()
 ggplot(tbl3.m, aes(pos, value)) + geom_point(aes(color=variable),size=0.3)+ facet_grid (.~ chr, scales = "free_x", space = "free_x")+geom_point(data=tbl3.cands.m, aes(x=pos, y=value), shape=5)+geom_text_repel(data=tbl3.cands.m, aes(x=pos, y=value, label=gene), size=3)+theme(legend.title = element_text(size = 0))+scale_x_continuous(breaks=breaks, labels=fancy_scientific)+labs(x="position", y="allele frequency")
 
 #JEN changed file name

@@ -24,16 +24,14 @@ if ! [ -d ./refs/ ]; then
 fi
 
 ## Create a log file for the input commands
-# I also wanted to have logs for the output but some of the stdout are super long
 cat ./scripts/simple.sh > ./output/log.txt
 cat ./scripts/analysis3.R >> ./output/log.txt
 
 # Read variables (line, species)
 source ./scripts/simple_variables.sh
 
-# Download & create fasta file
+# Download reference fasta file
 fasta_link=`awk -v var="$my_species" 'match($1, var) {print $2}' ./scripts/data_base.txt`
-
 if ! [ -f ./refs/$my_species.fa ]; then
   echo "Downloading reference FASTA file"
   curl -o ./refs/$my_species.fa.gz $fasta_link
@@ -53,7 +51,7 @@ fi
 awk '/[Ss]caffold/ || /[Cc]ontig/ {exit} {print}' ./refs/$my_species.fa > ./refs/$my_species.chrs.fa
 fa=./refs/$my_species.chrs.fa
 
-#downloading & creating knownsnps file
+# Download a known SNPs file
 knownsnps_link=`awk -v var="$my_species" 'match($1, var) {print $3}' ./scripts/data_base.txt`
 if ! [ -f ./refs/$my_species.vcf ]; then
   echo "Downloading known SNPs VCF"
@@ -61,7 +59,7 @@ if ! [ -f ./refs/$my_species.vcf ]; then
   gzip -d ./refs/$my_species.vcf.gz
 fi
 
-#snpEff "link"
+# Generate a snpEff "link"
 snpEff_link=`awk -v var="$my_species" 'match($1, var) {print $4}' ./scripts/data_base.txt`
 
 #reference input files that are necessary to run the prograns
@@ -71,12 +69,14 @@ snpEffDB=$snpEff_link #paste the snpEff annotated genome name
 
 ####creating reference files####
 ##Adding logic to not recreate files
+
 #creating .fai file
 if ! [ -f ./refs/$my_species.fa.fai ]; then
     echo "Creating samtools faidx index"
     samtools faidx $fa
 fi
-#creating bwa index files
+
+# Creating a genome index with BWA
 if ! [ -f ./refs/$my_species.chrs.fa.bwt ]; then
     echo "Creating BWA index"
     bwa index -p $my_species.chrs.fa -a is $fa
@@ -89,7 +89,7 @@ if ! [ -f ./refs/$my_species.chrs.dict ]; then
     picard CreateSequenceDictionary -R $fa -O refs/$my_species.chrs.dict
 fi
 
-#mapping w/ BWA
+# Map sequences to the genome
 if ! [ -f ./output/$mut.bam ]; then
     echo "Mapping with BWA and creating BAM files"
     bwa mem -t 3 -M $fa ${mut_files[*]} | samtools view -bS - > output/$mut.bam &
@@ -105,7 +105,7 @@ if ! [ -f ./output/$mut.fix.bam ]; then
     wait
 fi
 
-# Sort by coordinates
+# Sort the bam file by coordinates
 if ! [ -f ./output/$mut.sort.bam ]; then
     echo "Sorting files"
     samtools sort output/$mut.fix.bam -o output/$mut.sort.bam &
